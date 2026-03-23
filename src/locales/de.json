@@ -153,7 +153,8 @@
         "uploader": "Uploader:",
         "extractor": "Extractor:",
         "link": "Link:",
-        "description": "Beschreibung:"
+        "description": "Beschreibung:",
+        "urlHeaders": "URL-Header:"
       },
       "stats": {
         "title": "Videostatistiken",
@@ -320,7 +321,7 @@
       "vtt": "WebVTT (.vtt)",
       "ass": "Advanced SubStation Alpha (.ass)",
       "ttml": "Timed Text Markup (.ttml)",
-      "json": "JSON (.json)"
+      "json3": "JSON (.json)"
     }
   },
   "location": {

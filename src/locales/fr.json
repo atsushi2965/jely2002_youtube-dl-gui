@@ -150,10 +150,11 @@
       },
       "thumbnailAlt": "Miniature pour {title}",
       "metadata": {
-        "uploader": "Uploader :",
+        "uploader": "Téléchargeur :",
         "extractor": "Extracteur :",
         "link": "Lien :",
-        "description": "Description :"
+        "description": "Description :",
+        "urlHeaders": "En-têtes URL :"
       },
       "stats": {
         "title": "Statistiques de la vidéo",
@@ -320,7 +321,7 @@
       "vtt": "WebVTT (.vtt)",
       "ass": "Advanced SubStation Alpha (.ass)",
       "ttml": "Timed Text Markup (.ttml)",
-      "json": "JSON (.json)"
+      "json3": "JSON (.json)"
     }
   },
   "location": {
