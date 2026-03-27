@@ -16,19 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-          - platform: 'ubuntu-24.04'
-            args: ''
-          - platform: 'ubuntu-24.04-arm'
-            args: ''
-          - platform: 'windows-latest'
-            args: ''
-          - platform: 'windows-11-arm'
-            args: ''
+        platform:
+          - 'ubuntu-24.04'
+          - 'ubuntu-24.04-arm'
+          - 'windows-latest'
+          - 'windows-11-arm'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -60,7 +52,7 @@ jobs:
       - name: install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.platform == 'windows-11-arm' && 'aarch64-pc-windows-msvc' || '' }}
+          targets: ${{ matrix.platform == 'windows-11-arm' && 'aarch64-pc-windows-msvc' || '' }}
 
       - name: Install cargo-about
         uses: taiki-e/install-action@v2
@@ -74,40 +66,6 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
-
-      - name: Import Apple Developer Certificate (MacOS only)
-        if: startsWith(matrix.platform, 'macos')
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          security find-identity -v -p codesigning build.keychain
-
-      - name: Prepare notarization key (macOS only)
-        if: startsWith(matrix.platform, 'macos')
-        env:
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
-        run: |
-          mkdir -p "$(dirname "$APPLE_API_KEY_PATH")"
-          printf '%s' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
-
-      - name: Setup Sentry CLI
-        if: matrix.platform != 'windows-11-arm'
-        uses: matbour/setup-sentry-cli@v2
-        with:
-          version: latest
-          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          organization: ${{ secrets.SENTRY_ORG }}
-          project: ${{ secrets.SENTRY_PROJECT }}
 
       # TEMPORARY WORKAROUND:
       # Use a custom tauri-cli branch to enable the new "truly portable" AppImage format.
@@ -134,9 +92,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
           # TEMPORARY WORKAROUND:
           # This environment variable is needed to enable the new appimage features.
           TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: "true"
@@ -151,7 +106,6 @@ jobs:
           # TEMPORARY WORKAROUND:
           # This option is needed to use the possibly overriden branch of tauri-cli, to fix appimages.
           tauriScript: 'cargo tauri'
-          args: ${{ matrix.args }}
 
       - name: Create public PDBs (Windows only)
         if: matrix.platform == 'windows-latest' || matrix.platform == 'windows-11-arm'
@@ -189,34 +143,6 @@ jobs:
             $outPath = Join-Path $publicDir $pdb.Name
             & "$($pdbcopy.FullName)" "$($pdb.FullName)" "$outPath" -p
           }
-
-      - name: Upload debug symbols to Sentry
-        if: matrix.platform != 'windows-11-arm'
-        shell: bash
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          VERSION="$(node -p 'require("./package.json").version')"
-          SENTRY_RELEASE="ovd@${VERSION}"
-          export SENTRY_RELEASE
-          
-          echo "Using Sentry release: $SENTRY_RELEASE"
-          
-          cd src-tauri
-          
-          if [ -d "target/release/public-pdb" ]; then
-            sentry-cli debug-files upload --include-sources target/release/public-pdb
-          else
-            sentry-cli debug-files upload --include-sources target/release
-          fi
-          
-          if [ "${{ matrix.platform }}" = "ubuntu-24.04" ]; then
-            sentry-cli releases new "$SENTRY_RELEASE" || true
-            sentry-cli releases set-commits "$SENTRY_RELEASE" --auto || true
-            sentry-cli releases finalize "$SENTRY_RELEASE" || true
-          fi
 
       - name: Fetch tool binaries for MSIX (Windows only)
         if: matrix.platform == 'windows-latest' || matrix.platform == 'windows-11-arm'
